@@ -21,6 +21,7 @@ import httplib2
 import logging
 import os
 import pickle
+import requests
 
 from apiclient.discovery import build
 from oauth2client.appengine import oauth2decorator_from_clientsecrets
@@ -29,7 +30,6 @@ from google.appengine.api import memcache
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
-
 
 # CLIENT_SECRETS, name of a file containing the OAuth 2.0 information for this
 # application, including client_id and client_secret, which are found
@@ -63,39 +63,84 @@ decorator = oauth2decorator_from_clientsecrets(
 
 class MainHandler(webapp2.RequestHandler):
 
-  @decorator.oauth_aware
-  def get(self):
-    path = os.path.join(os.path.dirname(__file__), 'grant.html')
-    variables = {
-        'url': decorator.authorize_url(),
-        'has_credentials': decorator.has_credentials()
+    @decorator.oauth_aware
+    def get(self):
+        path = os.path.join(os.path.dirname(__file__), 'grant.html')
+        variables = {
+            'url': decorator.authorize_url(),
+            'has_credentials': decorator.has_credentials()
         }
-    self.response.out.write(template.render(path, variables))
+        self.response.out.write(template.render(path, variables))
 
 
-class AboutHandler(webapp2.RequestHandler):
+class ImportHandler(webapp2.RequestHandler):
 
-  @decorator.oauth_required
-  def get(self):
-    try:
-      http = decorator.http()
-      print "# Getting cals "
-      text =  service.calendars().get(calendarId='primary').execute(http=http)['summary']
-      # user = service.people().get(userId='me').execute(http=http)
-      # text = 'Hello, %s!' % user['displayName']
+    @decorator.oauth_required
+    def get(self):
+        try:
+            # http = decorator.http()
+            # text =  service.calendars().get(calendarId='primary').execute(http=http)['summary']
+          # created = cal_import(service)
+          # user = service.people().get(userId='me').execute(http=http)
+          # text = 'Hello, %s!' % user['displayName']
 
-      path = os.path.join(os.path.dirname(__file__), 'welcome.html')
-      self.response.out.write(template.render(path, {'text': text }))
-    except AccessTokenRefreshError:
-      self.redirect('/')
+            # path = os.path.join(os.path.dirname(__file__), 'welcome.html')
+            # self.response.out.write(template.render(path, {'text': text }))
+            self.response.out.write('''
+                <html>
+                  <body>
+                    <form method="post">
+                        <p>Crew ID: <input type="text name="crew_id" /></p>
+                        <p><input type="submit" value="Submit" /></p>
+                    </form>
+                  </body>
+                </html>
+        ''')
+        except AccessTokenRefreshError:
+            self.redirect('/')
 
+    @decorator.oauth_required
+    def post(self):
+        crew_id = self.request.get('crew_id')
 
+        r = requests.Session()
+        results = r.post(
+            "http://cia.china-airlines.com/LoginHandler",
+            params={'userid': '635426',
+                    'password': 'ju635426'}
+        )
+
+        results = r.post(
+            "http://cia.china-airlines.com/cia_inq_view_rostreport.jsp",
+            params={'staffNum': '635426',
+                    'strDay': '01',
+                    'strMonth': '05',
+                    'strYear': '2013',
+                    'endDay': '31',
+                    'endMonth': '05',
+                    'endYear': '2013',
+                    'display_timezone': 'Port Local'}
+        )
+
+        # event = {
+        #     'summary': 'Appointment',
+        #     'location': 'Somewhere',
+        #     'start': {
+        #         'dateTime': '2013-06-25T10:00:00.000-07:00'
+        #     },
+        #     'end': {
+        #         'dateTime': '2013-06-25T10:25:00.000-07:00'
+        #     }
+        # }
+        # http = decorator.http()
+        # request = service.events().insert(calendarId='primary', body=event).execute(http=http)
+        self.response.out.write(results.text)
 
 app = webapp2.WSGIApplication(
-  [
-   ('/', MainHandler),
-   ('/about', AboutHandler),
-   (decorator.callback_path, decorator.callback_handler()),
-  ],
-  debug=True)
+    [
+    ('/', MainHandler),
+    ('/import', ImportHandler),
+    (decorator.callback_path, decorator.callback_handler()),
+    ],
+    debug=True)
 run_wsgi_app(app)
