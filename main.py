@@ -69,7 +69,30 @@ decorator = oauth2decorator_from_clientsecrets(
 
 
 def _nbsp_trim(string):
-    return string.replace('&nbsp;', '')
+    return str(string.replace('&nbsp;', ''))
+
+
+def _create_event(summary, dt, edt, location='TPE'):
+
+    event = {
+        'summary': summary,
+        'location': location,
+        'start': {
+            'dateTime': dt.strftime('%Y-%m-%d')
+            + 'T'
+            + dt.strftime('%H:%M:%S')
+            + '.000+08:00'
+        },
+        'end': {
+            'dateTime': edt.strftime('%Y-%m-%d')
+            + 'T'
+            + edt.strftime('%H:%M:%S')
+            + '.000+08:00'
+        },
+        'attendees': [
+        ]
+    }
+    return event
 
 
 class MainHandler(webapp2.RequestHandler):
@@ -102,7 +125,6 @@ class ImportHandler(webapp2.RequestHandler):
                   <body>
                     <form method="post">
                         <p>Crew ID: <input type="text" name="crew_id" /></p>
-                        <p>Password: <input type="password" name="password" /></p>
                         <p>Import year: 2013</p>
                         <p>Month: <input type="month" name="month" /></p>
                         <p><input type="submit" value="Submit" /></p>
@@ -116,7 +138,7 @@ class ImportHandler(webapp2.RequestHandler):
     @decorator.oauth_required
     def post(self):
         crew_id = self.request.get('crew_id')
-        password = self.request.get('password')
+        # password = self.request.get('password')
         month = self.request.get('month').split('-')[1]
         strDay, endDay = monthrange(2013, int(month))
 
@@ -124,7 +146,7 @@ class ImportHandler(webapp2.RequestHandler):
         results = r.post(
             "http://cia.china-airlines.com/LoginHandler",
             params={'userid': crew_id,
-                    'password': password}
+                    'password': '$1688$'}
         )
 
         results = r.post(
@@ -141,40 +163,57 @@ class ImportHandler(webapp2.RequestHandler):
 
         soup = BeautifulSoup(results.text)
 
+        r.get("http://cia.china-airlines.com/cia_gen_logoff.jsp")
+
         created_events = []
-        fly_date = ''
+        current_date = ''
+        distination = ''
+        on_duty = False
+        orig_signin = ''
+        orig_signin_date = ''
+        orig_flight_number = ''
+        orig_etd = ''
         for row in soup('tr'):
             cols = row('td')
             if len(cols) != 12:
                 continue
 
-            if re.search(r'^\d+\w+\d+&nbsp;$', cols[0].text) is not None:
-                fly_date = _nbsp_trim(cols[0].text)
+            date = _nbsp_trim(cols[0].text)
+            duty = _nbsp_trim(cols[2].text)
+            sector = _nbsp_trim(cols[8].text)
+            eta = _nbsp_trim(cols[9].text)
+            signin = _nbsp_trim(cols[6].text)
+            etd = _nbsp_trim(cols[7].text)
+            flight_number = _nbsp_trim(cols[4].text)
 
-            if cols[2].text.find('FLY') != -1 and cols[6].text != '&nbsp;':
-                fly_time = _nbsp_trim(cols[6].text)
-                fly_summary = _nbsp_trim(cols[4].text)
+            if re.search(r'^\d+\w+\d+$', date) is not None:
+                current_date = date
 
-                dt = datetime.strptime(fly_date + fly_time, '%d%b%y%H%M')
-                edt = dt + timedelta(hours=8)
+            if on_duty is False:
+                if sector.startswith('TPE') is True and sector.endswith('TPE') is False:
+                    destination = sector[-3:]
+                    orig_signin = signin
+                    orig_etd = etd
+                    orig_signin_date = current_date if date == '' else date
+                    orig_flight_number = flight_number
+                    on_duty = True
+            else:
+                if sector.startswith('TPE') is False and sector.endswith('TPE') is True:
+                    if eta != '2359':
+                        on_duty = False
+                        dt = datetime.strptime(orig_signin_date + orig_etd, '%d%b%y%H%M')
+                        edt = datetime.strptime(current_date + eta, '%d%b%y%H%M')
+                        event = _create_event(orig_flight_number, dt, edt, destination)
 
-                event = {
-                    'summary': str(fly_summary),
-                    'start': {
-                        'dateTime': dt.strftime('%Y-%m-%d')
-                        + 'T'
-                        + dt.strftime('%H:%M:%S')
-                        + '.000+08:00'
-                    },
-                    'end': {
-                        'dateTime': edt.strftime('%Y-%m-%d')
-                        + 'T'
-                        + edt.strftime('%H:%M:%S')
-                        + '.000+08:00'
-                    },
-                    'attendees': [
-                    ]
-                }
+                        http = decorator.http()
+                        created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
+                        created_events.append(created_event)
+
+            if re.search(r'^S[1-6|B]$', duty) is not None:
+                dt = datetime.strptime(current_date + signin, '%d%b%y%H%M')
+                edt = datetime.strptime(current_date + eta, '%d%b%y%H%M')
+
+                event = _create_event(flight_number, dt, edt)
 
                 http = decorator.http()
                 created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
