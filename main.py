@@ -31,7 +31,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 import re
-from datetime import datetime
+from datetime import datetime, date
 from datetime import timedelta
 from BeautifulSoup import BeautifulSoup
 from calendar import monthrange
@@ -125,9 +125,8 @@ class ImportHandler(webapp2.RequestHandler):
                   <body>
                     <form method="post">
                         <p>Crew ID: <input type="text" name="crew_id" /></p>
-                        <p>Import year: 2013</p>
                         <p>Month: <input type="month" name="month" /></p>
-                        <p><input type="submit" value="Submit" /></p>
+                        <p><input type="submit" value="Import" /></p>
                     </form>
                   </body>
                 </html>
@@ -137,15 +136,38 @@ class ImportHandler(webapp2.RequestHandler):
 
     @decorator.oauth_required
     def post(self):
-        crew_id = self.request.get('crew_id')
-        # password = self.request.get('password')
-        month = self.request.get('month').split('-')[1]
+        crew_id = str(self.request.get('crew_id'))
+        month = str(self.request.get('month').split('-')[1])
+        year = str(self.request.get('month').split('-')[0])
         strDay, endDay = monthrange(2013, int(month))
+
+        queryStartDate = datetime.strptime(year + month + '01', '%Y%m%d')
+        queryEndDate = datetime.strptime(year + month + str(endDay), '%Y%m%d')
+
+        http = decorator.http()
+        event_list = service.events().list(
+            calendarId='primary',
+            timeMin=queryStartDate.strftime('%Y-%m-%d')
+            + 'T'
+            + '00:00:00'
+            + '.000+08:00',
+            timeMax=queryEndDate.strftime('%Y-%m-%d')
+            + 'T'
+            + '23:59:59'
+            + '.000+08:00').execute(http=http)
+
+        deleted_events = []
+        for each_event in event_list['items']:
+            if each_event['summary'].startswith('CI') or each_event['summary'].startswith('STDBY') or each_event['summary'].startswith('AE'):
+                service.events().delete(
+                    calendarId='primary',
+                    eventId=each_event['iCalUID'].replace('@google.com', '')).execute(http=http)
+                deleted_events.append(each_event['summary'])
 
         r = requests.Session()
         results = r.post(
             "http://cia.china-airlines.com/LoginHandler",
-            params={'userid': crew_id,
+            params={'userid': '635426',
                     'password': '$1688$'}
         )
 
@@ -154,10 +176,10 @@ class ImportHandler(webapp2.RequestHandler):
             params={'staffNum': crew_id,
                     'strDay': '01',
                     'strMonth': month,
-                    'strYear': '2013',
+                    'strYear': year,
                     'endDay': endDay,
                     'endMonth': month,
-                    'endYear': '2013',
+                    'endYear': year,
                     'display_timezone': 'Port Local'}
         )
 
@@ -166,13 +188,7 @@ class ImportHandler(webapp2.RequestHandler):
         r.get("http://cia.china-airlines.com/cia_gen_logoff.jsp")
 
         created_events = []
-        current_date = ''
-        distination = ''
         on_duty = False
-        orig_signin = ''
-        orig_signin_date = ''
-        orig_flight_number = ''
-        orig_etd = ''
         for row in soup('tr'):
             cols = row('td')
             if len(cols) != 12:
@@ -192,7 +208,7 @@ class ImportHandler(webapp2.RequestHandler):
             if on_duty is False:
                 if sector.startswith('TPE') is True and sector.endswith('TPE') is False:
                     destination = sector[-3:]
-                    orig_signin = signin
+                    # orig_signin = signin
                     orig_etd = etd
                     orig_signin_date = current_date if date == '' else date
                     orig_flight_number = flight_number
@@ -205,9 +221,9 @@ class ImportHandler(webapp2.RequestHandler):
                         edt = datetime.strptime(current_date + eta, '%d%b%y%H%M')
                         event = _create_event(orig_flight_number, dt, edt, destination)
 
-                        http = decorator.http()
+                        # http = decorator.http()
                         created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
-                        created_events.append(created_event)
+                        created_events.append(created_event['summary'])
 
             if re.search(r'^S[1-6|B]$', duty) is not None:
                 dt = datetime.strptime(current_date + signin, '%d%b%y%H%M')
@@ -215,11 +231,12 @@ class ImportHandler(webapp2.RequestHandler):
 
                 event = _create_event(flight_number, dt, edt)
 
-                http = decorator.http()
+                # http = decorator.http()
                 created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
-                created_events.append(created_event)
+                created_events.append(created_event['summary'])
 
-        self.response.out.write(str(len(created_events)) + ' events imported to Google Calendar')
+        # self.response.out.write(str(len(created_events)) + ' events imported to Google Calendar')
+        self.response.out.write('Deleted: ' + str(deleted_events) + '<br>' + 'Added: ' + str(created_events))
 
 app = webapp2.WSGIApplication(
     [

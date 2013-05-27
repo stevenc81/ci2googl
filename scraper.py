@@ -32,10 +32,18 @@ def _create_event(summary, dt, edt, location='TPE'):
     print event
     return event
 
+
 def scrape():
-    month = '2013-06'
-    month = month.split('-')[1]
+    year_month = '2013-05'
+    month = str(year_month.split('-')[1])
+    year = str(year_month.split('-')[0])
     strDay, endDay = monthrange(2013, int(month))
+
+    # queryStartDate = datetime.strptime(year + month + '1', '%Y%m%d')
+    # queryEndDate = datetime.strptime(year + month + str(endDay), '%Y%m%d')
+
+    # print queryEndDate
+    # print queryStartDate
 
     r = requests.Session()
     results = r.post(
@@ -55,6 +63,7 @@ def scrape():
                 'endYear': '2013',
                 'display_timezone': ' Port Local'}
     )
+    r.get("http://cia.china-airlines.com/cia_gen_logoff.jsp")
     # print results.text
 
     # f = open('req_result.html', 'w')
@@ -66,13 +75,7 @@ def scrape():
     # f.close()
 
     soup = BeautifulSoup(results.text)
-    current_date = ''
-    distination = ''
     on_duty = False
-    orig_signin = ''
-    orig_signin_date = ''
-    orig_flight_number = ''
-    orig_etd = ''
     for row in soup('tr'):
         cols = row('td')
         if len(cols) != 12:
@@ -92,7 +95,6 @@ def scrape():
         if on_duty is False:
             if sector.startswith('TPE') is True and sector.endswith('TPE') is False:
                 destination = sector[-3:]
-                orig_signin = signin
                 orig_etd = etd
                 orig_signin_date = current_date if date == '' else date
                 orig_flight_number = flight_number
