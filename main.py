@@ -72,7 +72,7 @@ def _nbsp_trim(string):
     return str(string.replace('&nbsp;', ''))
 
 
-def _create_event(summary, dt, edt, location='TPE'):
+def _create_event(service, http, summary, dt, edt, location='TPE'):
 
     event = {
         'summary': summary,
@@ -92,7 +92,9 @@ def _create_event(summary, dt, edt, location='TPE'):
         'attendees': [
         ]
     }
-    return event
+
+    created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
+    return created_event['summary']
 
 
 class MainHandler(webapp2.RequestHandler):
@@ -216,23 +218,33 @@ class ImportHandler(webapp2.RequestHandler):
                 if sector.startswith('TPE') is False and sector.endswith('TPE') is True:
                     if eta != '2359':
                         on_duty = False
-                        dt = datetime.strptime(orig_signin_date + orig_signin, '%d%b%y%H%M')
-                        edt = datetime.strptime(current_date + eta, '%d%b%y%H%M')
-                        event = _create_event(orig_flight_number, dt, edt, destination)
-
-                        created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
-                        created_events.append(created_event['summary'])
-
+                        event = _create_event(
+                            service,
+                            http,
+                            orig_flight_number,
+                            datetime.strptime(orig_signin_date + orig_signin, '%d%b%y%H%M'),
+                            datetime.strptime(current_date + eta, '%d%b%y%H%M'),
+                            destination)
+                        created_events.append(event)
             if re.search(r'^S[1-6|B]$', duty) is not None:
-                dt = datetime.strptime(current_date + signin, '%d%b%y%H%M')
-                edt = datetime.strptime(current_date + eta, '%d%b%y%H%M')
+                event = _create_event(
+                    service,
+                    http,
+                    flight_number,
+                    datetime.strptime(current_date + signin, '%d%b%y%H%M'),
+                    datetime.strptime(current_date + eta, '%d%b%y%H%M'))
 
-                event = _create_event(flight_number, dt, edt)
+                created_events.append(event)
 
-                created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
-                created_events.append(created_event['summary'])
+        if on_duty:
+            event = _create_event(
+                service,
+                http,
+                orig_flight_number,
+                datetime.strptime(orig_signin_date + orig_signin, '%d%b%y%H%M'),
+                datetime.strptime(current_date + eta, '%d%b%y%H%M'))
+            created_events.append(event)
 
-        # self.response.out.write(str(len(created_events)) + ' events imported to Google Calendar')
         self.response.out.write('Deleted: ' + str(deleted_events) + '<br>' + 'Added: ' + str(created_events))
 
 app = webapp2.WSGIApplication(
@@ -241,5 +253,5 @@ app = webapp2.WSGIApplication(
     ('/import', ImportHandler),
     (decorator.callback_path, decorator.callback_handler()),
     ],
-    debug=True)
+    debug=False)
 run_wsgi_app(app)

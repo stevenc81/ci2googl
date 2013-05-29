@@ -113,5 +113,10 @@ def scrape():
 
             _create_event(flight_number, dt, edt)
 
+    if on_duty:
+        dt = datetime.strptime(orig_signin_date + orig_signin, '%d%b%y%H%M')
+        edt = datetime.strptime(current_date + eta, '%d%b%y%H%M')
+        _create_event(orig_flight_number, dt, edt, destination)
+
 if __name__ == "__main__":
     scrape()
