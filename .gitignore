@@ -3,5 +3,3 @@ include/
 lib/
 .Python
 *.pyc
-requests/
-bs4/
