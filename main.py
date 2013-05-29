@@ -208,8 +208,7 @@ class ImportHandler(webapp2.RequestHandler):
             if on_duty is False:
                 if sector.startswith('TPE') is True and sector.endswith('TPE') is False:
                     destination = sector[-3:]
-                    # orig_signin = signin
-                    orig_etd = etd
+                    orig_signin = signin if signin != '' else etd
                     orig_signin_date = current_date if date == '' else date
                     orig_flight_number = flight_number
                     on_duty = True
@@ -217,11 +216,10 @@ class ImportHandler(webapp2.RequestHandler):
                 if sector.startswith('TPE') is False and sector.endswith('TPE') is True:
                     if eta != '2359':
                         on_duty = False
-                        dt = datetime.strptime(orig_signin_date + orig_etd, '%d%b%y%H%M')
+                        dt = datetime.strptime(orig_signin_date + orig_signin, '%d%b%y%H%M')
                         edt = datetime.strptime(current_date + eta, '%d%b%y%H%M')
                         event = _create_event(orig_flight_number, dt, edt, destination)
 
-                        # http = decorator.http()
                         created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
                         created_events.append(created_event['summary'])
 
@@ -231,7 +229,6 @@ class ImportHandler(webapp2.RequestHandler):
 
                 event = _create_event(flight_number, dt, edt)
 
-                # http = decorator.http()
                 created_event = service.events().insert(calendarId='primary', body=event).execute(http=http)
                 created_events.append(created_event['summary'])
 

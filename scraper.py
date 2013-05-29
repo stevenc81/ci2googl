@@ -95,7 +95,7 @@ def scrape():
         if on_duty is False:
             if sector.startswith('TPE') is True and sector.endswith('TPE') is False:
                 destination = sector[-3:]
-                orig_etd = etd
+                orig_signin = signin if signin != '' else etd
                 orig_signin_date = current_date if date == '' else date
                 orig_flight_number = flight_number
                 on_duty = True
@@ -103,7 +103,7 @@ def scrape():
             if sector.startswith('TPE') is False and sector.endswith('TPE') is True:
                 if eta != '2359':
                     on_duty = False
-                    dt = datetime.strptime(orig_signin_date + orig_etd, '%d%b%y%H%M')
+                    dt = datetime.strptime(orig_signin_date + orig_signin, '%d%b%y%H%M')
                     edt = datetime.strptime(current_date + eta, '%d%b%y%H%M')
                     _create_event(orig_flight_number, dt, edt, destination)
 
