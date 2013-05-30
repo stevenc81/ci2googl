@@ -159,12 +159,13 @@ class ImportHandler(webapp2.RequestHandler):
             + '.000+08:00').execute(http=http)
 
         deleted_events = []
-        for each_event in event_list['items']:
-            if each_event['summary'].startswith('CI') or each_event['summary'].startswith('STDBY') or each_event['summary'].startswith('AE'):
-                service.events().delete(
-                    calendarId='primary',
-                    eventId=each_event['iCalUID'].replace('@google.com', '')).execute(http=http)
-                deleted_events.append(each_event['summary'])
+        if 'items' in event_list:
+            for each_event in event_list['items']:
+                if each_event['summary'].startswith('CI') or each_event['summary'].startswith('STDBY') or each_event['summary'].startswith('AE'):
+                    service.events().delete(
+                        calendarId='primary',
+                        eventId=each_event['iCalUID'].replace('@google.com', '')).execute(http=http)
+                    deleted_events.append(each_event['summary'])
 
         r = requests.Session()
         results = r.post(
@@ -253,5 +254,5 @@ app = webapp2.WSGIApplication(
     ('/import', ImportHandler),
     (decorator.callback_path, decorator.callback_handler()),
     ],
-    debug=False)
+    debug=True)
 run_wsgi_app(app)
