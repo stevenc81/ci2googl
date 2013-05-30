@@ -149,6 +149,7 @@ class ImportHandler(webapp2.RequestHandler):
         http = decorator.http()
         event_list = service.events().list(
             calendarId='primary',
+            maxResults='9999',
             timeMin=queryStartDate.strftime('%Y-%m-%d')
             + 'T'
             + '00:00:00'
