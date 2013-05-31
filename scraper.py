@@ -48,13 +48,13 @@ def scrape():
     r = requests.Session()
     results = r.post(
         "http://cia.china-airlines.com/LoginHandler",
-        params={'userid': '635426',
+        data={'userid': '635426',
                 'password': '$1688$'}
     )
 
     results = r.post(
         "http://cia.china-airlines.com/cia_inq_view_rostreport.jsp",
-        params={'staffNum': '635426',
+        data={'staffNum': '635426',
                 'strDay': '01',
                 'strMonth': month,
                 'strYear': '2013',

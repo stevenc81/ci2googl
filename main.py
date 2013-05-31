@@ -35,6 +35,7 @@ from datetime import datetime, date
 from datetime import timedelta
 from BeautifulSoup import BeautifulSoup
 from calendar import monthrange
+from google.appengine.api import urlfetch
 
 
 # CLIENT_SECRETS, name of a file containing the OAuth 2.0 information for this
@@ -138,10 +139,13 @@ class ImportHandler(webapp2.RequestHandler):
 
     @decorator.oauth_required
     def post(self):
+        urlfetch.set_default_fetch_deadline(30)
+
         crew_id = str(self.request.get('crew_id'))
         month = str(self.request.get('month').split('-')[1])
         year = str(self.request.get('month').split('-')[0])
         strDay, endDay = monthrange(2013, int(month))
+        endDay = str(endDay)
 
         queryStartDate = datetime.strptime(year + month + '01', '%Y%m%d')
         queryEndDate = datetime.strptime(year + month + str(endDay), '%Y%m%d')
@@ -171,20 +175,22 @@ class ImportHandler(webapp2.RequestHandler):
         r = requests.Session()
         results = r.post(
             "http://cia.china-airlines.com/LoginHandler",
-            params={'userid': '635426',
-                    'password': '$1688$'}
+            data={
+                'userid': '635426',
+                'password': '$1688$'}
         )
 
         results = r.post(
             "http://cia.china-airlines.com/cia_inq_view_rostreport.jsp",
-            params={'staffNum': crew_id,
-                    'strDay': '01',
-                    'strMonth': month,
-                    'strYear': year,
-                    'endDay': endDay,
-                    'endMonth': month,
-                    'endYear': year,
-                    'display_timezone': 'Port Local'}
+            data={
+                'staffNum': crew_id,
+                'strDay': '01',
+                'strMonth': month,
+                'strYear': year,
+                'endDay': endDay,
+                'endMonth': month,
+                'endYear': year,
+                'display_timezone': 'Port Local'}
         )
 
         soup = BeautifulSoup(results.text)
@@ -248,6 +254,7 @@ class ImportHandler(webapp2.RequestHandler):
             created_events.append(event)
 
         self.response.out.write('Deleted: ' + str(deleted_events) + '<br>' + 'Added: ' + str(created_events))
+
 
 app = webapp2.WSGIApplication(
     [
