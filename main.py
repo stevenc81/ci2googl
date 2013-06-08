@@ -22,6 +22,7 @@ import logging
 import os
 import pickle
 import requests
+import json
 
 from apiclient.discovery import build
 from oauth2client.appengine import oauth2decorator_from_clientsecrets
@@ -115,14 +116,6 @@ class ImportHandler(webapp2.RequestHandler):
     @decorator.oauth_required
     def get(self):
         try:
-            # http = decorator.http()
-            # text =  service.calendars().get(calendarId='primary').execute(http=http)['summary']
-          # created = cal_import(service)
-          # user = service.people().get(userId='me').execute(http=http)
-          # text = 'Hello, %s!' % user['displayName']
-
-            # path = os.path.join(os.path.dirname(__file__), 'welcome.html')
-            # self.response.out.write(template.render(path, {'text': text }))
             self.response.out.write('''
                 <html>
                   <body>
@@ -144,7 +137,7 @@ class ImportHandler(webapp2.RequestHandler):
         crew_id = str(self.request.get('crew_id'))
         month = str(self.request.get('month').split('-')[1])
         year = str(self.request.get('month').split('-')[0])
-        strDay, endDay = monthrange(2013, int(month))
+        strDay, endDay = monthrange(int(year), int(month))
         endDay = str(endDay)
 
         queryStartDate = datetime.strptime(year + month + '01', '%Y%m%d')
@@ -172,12 +165,15 @@ class ImportHandler(webapp2.RequestHandler):
                         eventId=each_event['iCalUID'].replace('@google.com', '')).execute(http=http)
                     deleted_events.append(each_event['summary'])
 
+        with open('ci_credentials.json') as f:
+            cred = json.load(f)
+
         r = requests.Session()
         results = r.post(
             "http://cia.china-airlines.com/LoginHandler",
             data={
-                'userid': '635426',
-                'password': '$1688$'}
+                'userid': cred['userid'],
+                'password': cred['password']}
         )
 
         results = r.post(

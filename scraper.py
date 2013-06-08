@@ -1,13 +1,14 @@
 import requests
 import re
+import json
 from datetime import datetime
 from BeautifulSoup import BeautifulSoup
-from datetime import timedelta
 from calendar import monthrange
 
 
 def _nbsp_trim(string):
     return str(string.replace('&nbsp;', ''))
+
 
 def _create_event(summary, dt, edt, location='TPE'):
 
@@ -37,42 +38,30 @@ def scrape():
     year_month = '2013-05'
     month = str(year_month.split('-')[1])
     year = str(year_month.split('-')[0])
-    strDay, endDay = monthrange(2013, int(month))
+    strDay, endDay = monthrange(int(year), int(month))
 
-    # queryStartDate = datetime.strptime(year + month + '1', '%Y%m%d')
-    # queryEndDate = datetime.strptime(year + month + str(endDay), '%Y%m%d')
-
-    # print queryEndDate
-    # print queryStartDate
+    with open('ci_credentials.json') as f:
+        cred = json.load(f)
 
     r = requests.Session()
     results = r.post(
         "http://cia.china-airlines.com/LoginHandler",
-        data={'userid': '635426',
-                'password': '$1688$'}
+        data={'userid': cred['userid'],
+        'password': cred['password']}
     )
 
     results = r.post(
         "http://cia.china-airlines.com/cia_inq_view_rostreport.jsp",
         data={'staffNum': '635426',
-                'strDay': '01',
-                'strMonth': month,
-                'strYear': '2013',
-                'endDay': endDay,
-                'endMonth': month,
-                'endYear': '2013',
-                'display_timezone': ' Port Local'}
+        'strDay': '01',
+        'strMonth': month,
+        'strYear': year,
+        'endDay': endDay,
+        'endMonth': month,
+        'endYear': year,
+        'display_timezone': ' Port Local'}
     )
     r.get("http://cia.china-airlines.com/cia_gen_logoff.jsp")
-    # print results.text
-
-    # f = open('req_result.html', 'w')
-    # f.write(results.text)
-    # f.close()
-
-    # f = open('sample.html')
-    # soup = BeautifulSoup(f.read())
-    # f.close()
 
     soup = BeautifulSoup(results.text)
     on_duty = False

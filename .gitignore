@@ -3,3 +3,5 @@ include/
 lib/
 .Python
 *.pyc
+client_secrets.json
+ci_credentials.json
