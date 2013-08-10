@@ -212,14 +212,14 @@ class ImportHandler(webapp2.RequestHandler):
                 current_date = date
 
             if on_duty is False:
-                if sector.startswith('TPE') is True and sector.endswith('TPE') is False:
+                if sector.startswith(('TPE', 'TSA')) is True and sector.endswith(('TPE', 'TSA')) is False:
                     destination = sector[-3:]
                     orig_signin = signin if signin != '' else etd
                     orig_signin_date = current_date if date == '' else date
                     orig_flight_number = flight_number
                     on_duty = True
             else:
-                if sector.startswith('TPE') is False and sector.endswith('TPE') is True:
+                if sector.startswith(('TPE', 'TSA')) is False and sector.endswith(('TPE', 'TSA')) is True:
                     if eta != '2359':
                         on_duty = False
                         event = _create_event(
