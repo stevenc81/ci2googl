@@ -170,14 +170,14 @@ class ImportHandler(webapp2.RequestHandler):
 
         r = requests.Session()
         results = r.post(
-            "http://cia.china-airlines.com/LoginHandler",
+            "http://tpeweb04.china-airlines.com/cia/LoginHandler",
             data={
                 'userid': cred['userid'],
                 'password': cred['password']}
         )
 
         results = r.post(
-            "http://cia.china-airlines.com/cia_inq_view_rostreport.jsp",
+            "http://tpeweb04.china-airlines.com/cia/cia_inq_view_rostreport.jsp",
             data={
                 'staffNum': crew_id,
                 'strDay': '01',
@@ -191,7 +191,7 @@ class ImportHandler(webapp2.RequestHandler):
 
         soup = BeautifulSoup(results.text)
 
-        r.get("http://cia.china-airlines.com/cia_gen_logoff.jsp")
+        r.get("http://tpeweb04.china-airlines.com/cia/cia_gen_logoff.jsp")
 
         created_events = []
         on_duty = False
